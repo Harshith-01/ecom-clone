@@ -1,0 +1,46 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Market Sans", Arial, sans-serif; /* eBay's font stack */
+  background-color: #f7f7f7; /* The specific eBay off-white */
+  color: #191919;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+}* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Market Sans", "Helvetica Neue", Helvetica, Arial, Roboto, sans-serif;
+  background-color: white; /* eBay main bg is white, sections have colors */
+  color: #191919;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+}
+
+.page-container {
+    max-width: 1350px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
