@@ -42,6 +42,7 @@ function Sell() {
      	   method: 'POST',
 	       body: formData
        });
+		const data = await response.json();
 
        if (response.ok) {
      	  if (user.role === 'admin') {
@@ -50,7 +51,7 @@ function Sell() {
   	       navigate('/dashboard');
           }
      	} else {
-	       alert('Failed to list product. Please try again.');
+	       alert(data.message || 'Failed to list product. Please try again.');
        }
    	} catch(error) {
        console.error('Error submitting product:', error);

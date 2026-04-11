@@ -5,14 +5,16 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI;
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 const SERVER_PUBLIC_URL = (process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
@@ -21,7 +23,7 @@ const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173')
     .map(origin => origin.trim())
     .filter(Boolean);
 
-if (!SECRET_KEY || !MONGODB_URI || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+if (!SECRET_KEY || !MONGODB_URI || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET  ) {
     console.error('Missing required environment variables. Check your .env file.');
     process.exit(1);
 }
@@ -34,26 +36,26 @@ const razorpay = new Razorpay({
     key_secret: RAZORPAY_KEY_SECRET
 });
 
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
-}
-app.use('/uploads', express.static(uploadDir));
+cloudinary.config({
+    cloud_name: CLOUDINARY_CLOUD_NAME,
+    api_key: CLOUDINARY_API_KEY,
+    api_secret: CLOUDINARY_API_SECRET
+});
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log("Connected to MongoDB"))
     .catch(err => console.error("DB Error:", err));
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
+async function handleUpload(file) {
+    const cldRes = await cloudinary.uploader.upload(file, {
+        resource_type: 'auto',
+        folder: 'ebay-clone/products'
+    });
+    return cldRes;
+}
 
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
-    }
-});
-const upload = multer({ storage: storage });
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 const UserSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
@@ -159,8 +161,20 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/products', upload.array('productImages', 10), async (req, res) => {
     try {
         const { title, price, description, category, seller, quantity } = req.body;
-        const imagePaths = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
-        
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ message: 'At least one product image is required' });
+        }
+
+        const imagePaths = await Promise.all(
+            req.files.map(async (file) => {
+                const b64 = Buffer.from(file.buffer).toString('base64');
+                const dataURI = `data:${file.mimetype};base64,${b64}`;
+                const cldRes = await handleUpload(dataURI);
+                return cldRes.secure_url;
+            })
+        );
+
         const newProduct = new Product({
             title,
             price,
@@ -191,7 +205,14 @@ app.put('/api/products/:id', upload.array('newImages', 10), async (req, res) => 
 
         
         if (req.files && req.files.length > 0) {
-            finalImages = req.files.map(file => `/uploads/${file.filename}`);
+            finalImages = await Promise.all(
+                req.files.map(async (file) => {
+                    const b64 = Buffer.from(file.buffer).toString('base64');
+                    const dataURI = `data:${file.mimetype};base64,${b64}`;
+                    const cldRes = await handleUpload(dataURI);
+                    return cldRes.secure_url;
+                })
+            );
         }
 
         const updatedProduct = await Product.findByIdAndUpdate(
@@ -216,7 +237,7 @@ app.get('/api/products', async (req, res) => {
             category: p.category,
             seller: p.seller,
             quantity: p.quantity,
-            images: p.images.map(img => `${SERVER_PUBLIC_URL}${img}`)
+            images: p.images.map(img => (img.startsWith('http') ? img : `${SERVER_PUBLIC_URL}${img}`))
         }));
         res.json(formattedProducts);
     } catch (error) {
@@ -238,7 +259,7 @@ app.get('/api/products/:id', async (req, res) => {
             category: product.category,
             seller: product.seller,
             quantity: product.quantity,
-            images: product.images.map(img => `${SERVER_PUBLIC_URL}${img}`)
+            images: product.images.map(img => (img.startsWith('http') ? img : `${SERVER_PUBLIC_URL}${img}`))
         };
         res.json(formattedProduct);
     } catch (error) {
