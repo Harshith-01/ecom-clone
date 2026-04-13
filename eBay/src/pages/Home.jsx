@@ -84,71 +84,74 @@ function Home() {
             </section>
           </>
         ) : (
-          <section className="carousel-section">
-          <img src={bannerImages[activeSlide]} alt="Featured slide" className="carousel-image" />
-          <div className="carousel-overlay">
-            <div>
-              <h1>Discover deals that speak to you</h1>
-              <p>Find the right picks, fast. Fresh arrivals, top brands, and bold styles.</p>
-            </div>
-          </div>
-          <button className="carousel-arrow left" onClick={() => setActiveSlide((activeSlide + bannerImages.length - 1) % bannerImages.length)}>
-            ‹
-          </button>
-          <button className="carousel-arrow right" onClick={() => setActiveSlide((activeSlide + 1) % bannerImages.length)}>
-            ›
-          </button>
-          <div className="carousel-controls">
-            {bannerImages.map((_, index) => (
-              <button
-                key={index}
-                className={`carousel-dot ${index === activeSlide ? 'active' : ''}`}
-                onClick={() => setActiveSlide(index)}
-                aria-label={`Slide ${index + 1}`}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section className="feature-bar">
-          <div>
-            <h2>Shopping made easy</h2>
-            <p>Enjoy reliability, secure deliveries and hassle-free returns.</p>
-          </div>
-          <button className="cta-black">Start now</button>
-        </section>
-
-        <section className="products-section">
-          <h2>Featured Products</h2>
-          <div className="products-grid">
-            {products.length === 0 ? (
-              <p>Loading products...</p>
-            ) : (
-              products.map((product) => (
-                <div key={product._id} className="product-card" onClick={() => navigate(`/product/${product._id}`)}>
-                  <img src={product.images && product.images.length > 0 ? product.images[0] : ''} alt={product.title} className="product-image" />
-                  <h3>{product.title}</h3>
-                  <p>₹{product.price}</p>
-                  <p className="seller">Seller: {product.seller}</p>
+          <>
+            <section className="carousel-section">
+              <img src={bannerImages[activeSlide]} alt="Featured slide" className="carousel-image" />
+              <div className="carousel-overlay">
+                <div>
+                  <h1>Discover deals that speak to you</h1>
+                  <p>Find the right picks, fast. Fresh arrivals, top brands, and bold styles.</p>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
+              </div>
+              <button className="carousel-arrow left" onClick={() => setActiveSlide((activeSlide + bannerImages.length - 1) % bannerImages.length)}>
+                ‹
+              </button>
+              <button className="carousel-arrow right" onClick={() => setActiveSlide((activeSlide + 1) % bannerImages.length)}>
+                ›
+              </button>
+              <div className="carousel-controls">
+                {bannerImages.map((_, index) => (
+                  <button
+                    key={index}
+                    className={`carousel-dot ${index === activeSlide ? 'active' : ''}`}
+                    onClick={() => setActiveSlide(index)}
+                    aria-label={`Slide ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </section>
 
-        <section className="hero red-bg">
-          <div className="hero-content">
-            <h1 className="white-text">Endless accessories.<br />Epic prices.</h1>
-            <p className="white-text">Browse millions of upgrades for your ride.</p>
-          </div>
-        </section>
+            <section className="feature-bar">
+              <div>
+                <h2>Shopping made easy</h2>
+                <p>Enjoy reliability, secure deliveries and hassle-free returns.</p>
+              </div>
+              <button className="cta-black">Start now</button>
+            </section>
 
-        <section className="hero black-bg">
-          <div className="hero-content">
-            <h1 className="white-text">Love yourself first</h1>
-            <p className="white-text">This Valentine's Day, save on finds you'll actually love.</p>
-          </div>
-        </section>
+            <section className="products-section">
+              <h2>Featured Products</h2>
+              <div className="products-grid">
+                {products.length === 0 ? (
+                  <p>Loading products...</p>
+                ) : (
+                  products.map((product) => (
+                    <div key={product._id} className="product-card" onClick={() => navigate(`/product/${product._id}`)}>
+                      <img src={product.images && product.images.length > 0 ? product.images[0] : ''} alt={product.title} className="product-image" />
+                      <h3>{product.title}</h3>
+                      <p>₹{product.price}</p>
+                      <p className="seller">Seller: {product.seller}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="hero red-bg">
+              <div className="hero-content">
+                <h1 className="white-text">Endless accessories.<br />Epic prices.</h1>
+                <p className="white-text">Browse millions of upgrades for your ride.</p>
+              </div>
+            </section>
+
+            <section className="hero black-bg">
+              <div className="hero-content">
+                <h1 className="white-text">Love yourself first</h1>
+                <p className="white-text">This Valentine's Day, save on finds you'll actually love.</p>
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </div>
   );
