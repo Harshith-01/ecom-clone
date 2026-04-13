@@ -97,17 +97,23 @@ async function initEmail() {
     }
 }
 
-initEmail();
+async function initializeApp() {
+    await initEmail();
 
-cloudinary.config({
-    cloud_name: CLOUDINARY_CLOUD_NAME,
-    api_key: CLOUDINARY_API_KEY,
-    api_secret: CLOUDINARY_API_SECRET
-});
+    cloudinary.config({
+        cloud_name: CLOUDINARY_CLOUD_NAME,
+        api_key: CLOUDINARY_API_KEY,
+        api_secret: CLOUDINARY_API_SECRET
+    });
 
-mongoose.connect(MONGODB_URI)
-    .then(() => console.log("Connected to MongoDB"))
-    .catch(err => console.error("DB Error:", err));
+    mongoose.connect(MONGODB_URI)
+        .then(() => console.log("Connected to MongoDB"))
+        .catch(err => console.error("DB Error:", err));
+
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
+
+initializeApp();
 
 async function handleUpload(file) {
     const cldRes = await cloudinary.uploader.upload(file, {
@@ -119,7 +125,14 @@ async function handleUpload(file) {
 
 async function sendOrderPlacedEmail(order){
     const recipient = order?.shippingDetails?.email;
-    if (!recipient || !emailEnabled) return;
+    if (!recipient) {
+        console.warn(`Email skipped: order ${order?._id} has no shipping email.`);
+        return;
+    }
+    if (!emailEnabled) {
+        console.warn(`Email skipped: SMTP is not enabled for order ${order._id}.`);
+        return;
+    }
     await transporter.sendMail({
         from: SMTP_FROM,
         to: recipient,
@@ -138,7 +151,14 @@ async function sendOrderPlacedEmail(order){
 
 async function sendDeliveryStatusEmail(order,previousStatus,newStatus){
     const recipient = order?.shippingDetails?.email;
-    if (!recipient || !emailEnabled) return;
+    if (!recipient) {
+        console.warn(`Delivery email skipped: order ${order?._id} has no shipping email.`);
+        return;
+    }
+    if (!emailEnabled) {
+        console.warn(`Delivery email skipped: SMTP is not enabled for order ${order._id}.`);
+        return;
+    }
     await transporter.sendMail({
         from: SMTP_FROM,
         to: recipient,
@@ -549,5 +569,3 @@ try{
 } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
 }});
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
