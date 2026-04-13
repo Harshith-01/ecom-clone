@@ -53,7 +53,7 @@ let transporter = null;
 let emailEnabled = false;
 
 function createSmtpTransport() {
-    return nodemailer.createTransport({
+    const transportOptions = {
         host: SMTP_HOST,
         port: SMTP_PORT,
         secure: SMTP_SECURE,
@@ -61,6 +61,7 @@ function createSmtpTransport() {
             user: SMTP_USER,
             pass: SMTP_PASS
         },
+        requireTLS: true,
         tls: {
             rejectUnauthorized: false
         },
@@ -70,7 +71,13 @@ function createSmtpTransport() {
         lookup: (hostname, options, callback) => {
             dns.lookup(hostname, { ...options, family: 4 }, callback);
         }
-    });
+    };
+
+    if (SMTP_HOST === 'smtp.gmail.com') {
+        transportOptions.service = 'gmail';
+    }
+
+    return nodemailer.createTransport(transportOptions);
 }
 
 async function initEmail() {
@@ -87,13 +94,15 @@ async function initEmail() {
     }
 
     transporter = createSmtpTransport();
+    console.log('Verifying SMTP connection...');
 
     try {
-        await transporter.verify();
+        const info = await transporter.verify();
         emailEnabled = true;
-        console.log('SMTP configuration is correct');
+        console.log('SMTP configuration is correct:', info);
     } catch (err) {
         console.warn('SMTP configuration unavailable, email will be disabled:', err.message);
+        console.warn('SMTP verify error details:', err);
     }
 }
 
@@ -125,6 +134,7 @@ async function handleUpload(file) {
 
 async function sendOrderPlacedEmail(order){
     const recipient = order?.shippingDetails?.email;
+    console.log(`Preparing order email for order=${order?._id}, recipient=${recipient}, emailEnabled=${emailEnabled}`);
     if (!recipient) {
         console.warn(`Email skipped: order ${order?._id} has no shipping email.`);
         return;
@@ -133,24 +143,32 @@ async function sendOrderPlacedEmail(order){
         console.warn(`Email skipped: SMTP is not enabled for order ${order._id}.`);
         return;
     }
-    await transporter.sendMail({
-        from: SMTP_FROM,
-        to: recipient,
-        subject: `Order Placed Successfully - Order ID: ${order._id}`,
-        text: `Hi ${order.shippingDetails.fullName},\n\nThank you for your purchase! Your order with ID ${order._id} has been placed successfully. We will notify you once it is shipped.`,
-        html: `<p>Hi ${order.shippingDetails.fullName},</p>
-            <p>Order Details:</p>
-            <ul>
-                ${order.products.map(p => `<li>${p.quantity} x ${p.productId.title} - ₹${p.price}</li>`).join('')}
-            </ul>
-            <p>Total Price: ₹${order.totalPrice}</p>
-            <p>We will notify you once it is shipped.</p>
-            <p>Thank you for shopping with us!</p>`
-    });
+
+    try {
+        const info = await transporter.sendMail({
+            from: SMTP_FROM,
+            to: recipient,
+            subject: `Order Placed Successfully - Order ID: ${order._id}`,
+            text: `Hi ${order.shippingDetails.fullName},\n\nThank you for your purchase! Your order with ID ${order._id} has been placed successfully. We will notify you once it is shipped.`,
+            html: `<p>Hi ${order.shippingDetails.fullName},</p>
+                <p>Order Details:</p>
+                <ul>
+                    ${order.products.map(p => `<li>${p.quantity} x ${p.productId.title} - ₹${p.price}</li>`).join('')}
+                </ul>
+                <p>Total Price: ₹${order.totalPrice}</p>
+                <p>We will notify you once it is shipped.</p>
+                <p>Thank you for shopping with us!</p>`
+        });
+        console.log(`Order email sent successfully for order ${order._id}: ${info.messageId}`);
+    } catch (err) {
+        console.error(`Failed to send order email for order ${order._id}:`, err);
+        throw err;
+    }
 }
 
 async function sendDeliveryStatusEmail(order,previousStatus,newStatus){
     const recipient = order?.shippingDetails?.email;
+    console.log(`Preparing delivery status email for order=${order?._id}, recipient=${recipient}, emailEnabled=${emailEnabled}`);
     if (!recipient) {
         console.warn(`Delivery email skipped: order ${order?._id} has no shipping email.`);
         return;
@@ -159,12 +177,19 @@ async function sendDeliveryStatusEmail(order,previousStatus,newStatus){
         console.warn(`Delivery email skipped: SMTP is not enabled for order ${order._id}.`);
         return;
     }
-    await transporter.sendMail({
-        from: SMTP_FROM,
-        to: recipient,
-        subject: `Order status updated - Order ID: ${order._id}`,
-        text: `Hi ${order.shippingDetails.fullName},\n\nThe delivery status of your order with ID ${order._id} has been updated from "${previousStatus}" to "${newStatus}".\n\nThank you for shopping with us!`
-    });
+
+    try {
+        const info = await transporter.sendMail({
+            from: SMTP_FROM,
+            to: recipient,
+            subject: `Order status updated - Order ID: ${order._id}`,
+            text: `Hi ${order.shippingDetails.fullName},\n\nThe delivery status of your order with ID ${order._id} has been updated from "${previousStatus}" to "${newStatus}".\n\nThank you for shopping with us!`
+        });
+        console.log(`Delivery status email sent successfully for order ${order._id}: ${info.messageId}`);
+    } catch (err) {
+        console.error(`Failed to send delivery status email for order ${order._id}:`, err);
+        throw err;
+    }
 }
 
 const storage = multer.memoryStorage();
