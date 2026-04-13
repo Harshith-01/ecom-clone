@@ -61,6 +61,9 @@ function createSmtpTransport() {
             user: SMTP_USER,
             pass: SMTP_PASS
         },
+        authMethod: 'LOGIN',
+        logger: true,
+        debug: true,
         requireTLS: true,
         tls: {
             rejectUnauthorized: false
@@ -72,10 +75,6 @@ function createSmtpTransport() {
             dns.lookup(hostname, { ...options, family: 4 }, callback);
         }
     };
-
-    if (SMTP_HOST === 'smtp.gmail.com') {
-        transportOptions.service = 'gmail';
-    }
 
     return nodemailer.createTransport(transportOptions);
 }
