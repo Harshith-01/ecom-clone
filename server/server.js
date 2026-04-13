@@ -73,6 +73,8 @@ function createSmtpTransport() {
 }
 
 async function initEmail() {
+    console.log(`SMTP enabled=${SMTP_ENABLED}, host=${SMTP_HOST || 'unset'}, port=${SMTP_PORT || 'unset'}, secure=${SMTP_SECURE}, from=${SMTP_FROM || 'unset'}`);
+
     if (!SMTP_ENABLED) {
         console.log('SMTP is disabled by environment. Email notifications will remain off.');
         return;
