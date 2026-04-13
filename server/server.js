@@ -26,6 +26,9 @@ const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM;
 const SMTP_ENABLED = process.env.SMTP_ENABLED !== 'false';
+const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'smtp';
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const SENDGRID_FROM = process.env.SENDGRID_FROM || SMTP_FROM;
 const SERVER_PUBLIC_URL = (process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173')
     .split(',')
@@ -37,8 +40,11 @@ if (!SECRET_KEY || !MONGODB_URI || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !
     process.exit(1);
 }
 
-if (SMTP_ENABLED && (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM)) {
+if (EMAIL_PROVIDER === 'smtp' && SMTP_ENABLED && (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM)) {
     console.warn('SMTP is enabled but some SMTP environment variables are missing. Email will remain disabled.');
+}
+if (EMAIL_PROVIDER === 'sendgrid' && !SENDGRID_API_KEY) {
+    console.warn('SendGrid is configured as email provider but SENDGRID_API_KEY is missing. Email will remain disabled.');
 }
 
 app.use(cors({ origin: ALLOWED_ORIGINS }));
@@ -80,7 +86,17 @@ function createSmtpTransport() {
 }
 
 async function initEmail() {
-    console.log(`SMTP enabled=${SMTP_ENABLED}, host=${SMTP_HOST || 'unset'}, port=${SMTP_PORT || 'unset'}, secure=${SMTP_SECURE}, from=${SMTP_FROM || 'unset'}`);
+    console.log(`Email provider=${EMAIL_PROVIDER}, SMTP enabled=${SMTP_ENABLED}, host=${SMTP_HOST || 'unset'}, port=${SMTP_PORT || 'unset'}, secure=${SMTP_SECURE}, from=${SMTP_FROM || 'unset'}, sendgrid_from=${SENDGRID_FROM || 'unset'}`);
+
+    if (EMAIL_PROVIDER === 'sendgrid') {
+        if (!SENDGRID_API_KEY || !SENDGRID_FROM) {
+            console.warn('SendGrid provider selected but configuration is incomplete. Email will remain disabled.');
+            return;
+        }
+        emailEnabled = true;
+        console.log('Using SendGrid email provider');
+        return;
+    }
 
     if (!SMTP_ENABLED) {
         console.log('SMTP is disabled by environment. Email notifications will remain off.');
@@ -131,6 +147,52 @@ async function handleUpload(file) {
     return cldRes;
 }
 
+async function sendEmail({to, subject, text, html}) {
+    if (!to) {
+        throw new Error('Cannot send email without recipient');
+    }
+    if (!emailEnabled) {
+        throw new Error('Email provider is not enabled');
+    }
+
+    if (EMAIL_PROVIDER === 'sendgrid') {
+        console.log(`Sending email via SendGrid to ${to}`);
+        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${SENDGRID_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                personalizations: [{ to: [{ email: to }] }],
+                from: { email: SENDGRID_FROM },
+                subject,
+                content: [
+                    { type: 'text/plain', value: text || '' },
+                    { type: 'text/html', value: html || text || '' }
+                ]
+            })
+        });
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(`SendGrid failed: ${response.status} ${response.statusText} - ${body}`);
+        }
+
+        console.log(`SendGrid email accepted for delivery to ${to}`);
+        return { provider: 'sendgrid' };
+    }
+
+    console.log(`Sending email via SMTP to ${to}`);
+    return transporter.sendMail({
+        from: SMTP_FROM,
+        to,
+        subject,
+        text,
+        html
+    });
+}
+
 async function sendOrderPlacedEmail(order){
     const recipient = order?.shippingDetails?.email;
     console.log(`Preparing order email for order=${order?._id}, recipient=${recipient}, emailEnabled=${emailEnabled}`);
@@ -139,13 +201,12 @@ async function sendOrderPlacedEmail(order){
         return;
     }
     if (!emailEnabled) {
-        console.warn(`Email skipped: SMTP is not enabled for order ${order._id}.`);
+        console.warn(`Email skipped: SMTP/sendgrid is not enabled for order ${order._id}.`);
         return;
     }
 
     try {
-        const info = await transporter.sendMail({
-            from: SMTP_FROM,
+        const info = await sendEmail({
             to: recipient,
             subject: `Order Placed Successfully - Order ID: ${order._id}`,
             text: `Hi ${order.shippingDetails.fullName},\n\nThank you for your purchase! Your order with ID ${order._id} has been placed successfully. We will notify you once it is shipped.`,
@@ -158,7 +219,7 @@ async function sendOrderPlacedEmail(order){
                 <p>We will notify you once it is shipped.</p>
                 <p>Thank you for shopping with us!</p>`
         });
-        console.log(`Order email sent successfully for order ${order._id}: ${info.messageId}`);
+        console.log(`Order email sent successfully for order ${order._id}:`, info);
     } catch (err) {
         console.error(`Failed to send order email for order ${order._id}:`, err);
         throw err;
@@ -173,18 +234,17 @@ async function sendDeliveryStatusEmail(order,previousStatus,newStatus){
         return;
     }
     if (!emailEnabled) {
-        console.warn(`Delivery email skipped: SMTP is not enabled for order ${order._id}.`);
+        console.warn(`Delivery email skipped: SMTP/sendgrid is not enabled for order ${order._id}.`);
         return;
     }
 
     try {
-        const info = await transporter.sendMail({
-            from: SMTP_FROM,
+        const info = await sendEmail({
             to: recipient,
             subject: `Order status updated - Order ID: ${order._id}`,
             text: `Hi ${order.shippingDetails.fullName},\n\nThe delivery status of your order with ID ${order._id} has been updated from "${previousStatus}" to "${newStatus}".\n\nThank you for shopping with us!`
         });
-        console.log(`Delivery status email sent successfully for order ${order._id}: ${info.messageId}`);
+        console.log(`Delivery status email sent successfully for order ${order._id}:`, info);
     } catch (err) {
         console.error(`Failed to send delivery status email for order ${order._id}:`, err);
         throw err;
