@@ -97,3 +97,7 @@ function Register() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default Register;

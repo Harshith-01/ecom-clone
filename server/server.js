@@ -53,10 +53,15 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-transporter.verify().then(()=>console.log("SMTP configuration is correct")).catch(err => {
-    console.error("SMTP configuration error:", err);
-    process.exit(1);
-});
+let emailEnabled = false;
+transporter.verify()
+    .then(() => {
+        emailEnabled = true;
+        console.log("SMTP configuration is correct");
+    })
+    .catch(err => {
+        console.warn("SMTP configuration unavailable, email will be disabled:", err.message);
+    });
 
 cloudinary.config({
     cloud_name: CLOUDINARY_CLOUD_NAME,
@@ -77,16 +82,14 @@ async function handleUpload(file) {
 }
 
 async function sendOrderPlacedEmail(order){
-    const recipient=order?.shippingDetails?.email;
-    if(!recipient) return;
+    const recipient = order?.shippingDetails?.email;
+    if (!recipient || !emailEnabled) return;
     await transporter.sendMail({
         from: SMTP_FROM,
         to: recipient,
         subject: `Order Placed Successfully - Order ID: ${order._id}`,
-        text: `Hi ${order.shippingDetails.fullName},\n\nThank you for your purchase!
-         Your order with ID ${order._id} has been placed successfully.
-          We will notify you once it is shipped. `,
-            html: `<p>Hi ${order.shippingDetails.fullName},</p>
+        text: `Hi ${order.shippingDetails.fullName},\n\nThank you for your purchase! Your order with ID ${order._id} has been placed successfully. We will notify you once it is shipped.`,
+        html: `<p>Hi ${order.shippingDetails.fullName},</p>
             <p>Order Details:</p>
             <ul>
                 ${order.products.map(p => `<li>${p.quantity} x ${p.productId.title} - ₹${p.price}</li>`).join('')}
@@ -94,21 +97,18 @@ async function sendOrderPlacedEmail(order){
             <p>Total Price: ₹${order.totalPrice}</p>
             <p>We will notify you once it is shipped.</p>
             <p>Thank you for shopping with us!</p>`
-});
+    });
 }
 
 async function sendDeliveryStatusEmail(order,previousStatus,newStatus){
-    const recipient=order?.shippingDetails?.email;
-        if(!recipient) return;
-            await transporter.sendMail({
-            from: SMTP_FROM,
-            to: recipient,
-            subject: `Order status updated - Order ID: ${order._id}`,
-            text: `Hi ${order.shippingDetails.fullName},
-            \n\nThe delivery status of your order with 
-            ID ${order._id} has been updated from "${previousStatus}" 
-            to "${newStatus}".\n\nThank you for shopping with us!`
-});
+    const recipient = order?.shippingDetails?.email;
+    if (!recipient || !emailEnabled) return;
+    await transporter.sendMail({
+        from: SMTP_FROM,
+        to: recipient,
+        subject: `Order status updated - Order ID: ${order._id}`,
+        text: `Hi ${order.shippingDetails.fullName},\n\nThe delivery status of your order with ID ${order._id} has been updated from "${previousStatus}" to "${newStatus}".\n\nThank you for shopping with us!`
+    });
 }
 
 const storage = multer.memoryStorage();
