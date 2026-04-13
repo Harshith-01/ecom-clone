@@ -20,20 +20,25 @@ const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = process.env.SMTP_PORT;
+const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10) || undefined;
 const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM;
+const SMTP_ENABLED = process.env.SMTP_ENABLED !== 'false';
 const SERVER_PUBLIC_URL = (process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173')
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
 
-if (!SECRET_KEY || !MONGODB_URI || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM) {
+if (!SECRET_KEY || !MONGODB_URI || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
     console.error('Missing required environment variables.');
     process.exit(1);
+}
+
+if (SMTP_ENABLED && (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM)) {
+    console.warn('SMTP is enabled but some SMTP environment variables are missing. Email will remain disabled.');
 }
 
 app.use(cors({ origin: ALLOWED_ORIGINS }));
@@ -44,29 +49,65 @@ const razorpay = new Razorpay({
     key_secret: RAZORPAY_KEY_SECRET
 });
 
-const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_SECURE,
-    auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS
-    },
-    lookup: (hostname, options, callback) => {
-        const lookupOptions = Object.assign({}, options, { family: 4 });
-        dns.lookup(hostname, lookupOptions, callback);
-    }
-});
-
+let transporter = null;
 let emailEnabled = false;
-transporter.verify()
-    .then(() => {
-        emailEnabled = true;
-        console.log("SMTP configuration is correct");
-    })
-    .catch(err => {
-        console.warn("SMTP configuration unavailable, email will be disabled:", err.message);
+
+function createSmtpTransport(host = SMTP_HOST) {
+    return nodemailer.createTransport({
+        host,
+        port: SMTP_PORT,
+        secure: SMTP_SECURE,
+        name: SMTP_HOST,
+        auth: {
+            user: SMTP_USER,
+            pass: SMTP_PASS
+        },
+        tls: {
+            rejectUnauthorized: false,
+            servername: SMTP_HOST
+        },
+        lookup: (hostname, options, callback) => {
+            dns.lookup(hostname, { ...options, family: 4 }, callback);
+        }
     });
+}
+
+async function initEmail() {
+    if (!SMTP_ENABLED) {
+        console.log('SMTP is disabled by environment. Email notifications will remain off.');
+        return;
+    }
+
+    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM) {
+        console.warn('SMTP configuration incomplete. Email will remain disabled.');
+        return;
+    }
+
+    transporter = createSmtpTransport();
+
+    try {
+        await transporter.verify();
+        emailEnabled = true;
+        console.log('SMTP configuration is correct');
+    } catch (err) {
+        console.warn('SMTP configuration unavailable, email will be disabled:', err.message);
+
+        if (err.code === 'ENETUNREACH' || err.code === 'EAI_AGAIN' || /ipv6/i.test(err.message)) {
+            try {
+                const lookupResult = await dns.promises.lookup(SMTP_HOST, { family: 4 });
+                console.log(`Resolved ${SMTP_HOST} to IPv4 ${lookupResult.address}`);
+                transporter = createSmtpTransport(lookupResult.address);
+                await transporter.verify();
+                emailEnabled = true;
+                console.log('SMTP configuration is correct via IPv4 fallback');
+            } catch (fallbackErr) {
+                console.warn('SMTP IPv4 fallback failed, email is disabled:', fallbackErr.message);
+            }
+        }
+    }
+}
+
+initEmail();
 
 cloudinary.config({
     cloud_name: CLOUDINARY_CLOUD_NAME,
