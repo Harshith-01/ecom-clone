@@ -3,6 +3,88 @@
   font-family: sans-serif;
 }
 
+.carousel-section {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.carousel-image {
+  width: 100%;
+  height: 420px;
+  object-fit: cover;
+  display: block;
+}
+
+.carousel-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 40px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.65));
+  color: white;
+}
+
+.carousel-overlay h1 {
+  margin: 0 0 10px;
+  font-size: 36px;
+  max-width: 540px;
+}
+
+.carousel-overlay p {
+  margin: 0;
+  max-width: 420px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.carousel-controls {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+}
+
+.carousel-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.3);
+  cursor: pointer;
+}
+
+.carousel-dot.active {
+  background: white;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  border: none;
+  background: rgba(0,0,0,0.45);
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.carousel-arrow.left {
+  left: 18px;
+}
+
+.carousel-arrow.right {
+  right: 18px;
+}
+
 .content-container {
   max-width: 1200px;
   margin: 0 auto;

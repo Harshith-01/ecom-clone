@@ -72,8 +72,8 @@ function Navbar() {
    	   <span className="hi-user">Hi! <Link to="/login" className="blue-link">Sign in</Link> or <Link to="/register" className="blue-link">register</Link></span>
        )}
      	<a href="#">Daily Deals</a>
-	     <a href="#">Brand Outlet</a>
-        <a href="#">Help & Contact</a>
+	     <a className="top-link">Brand Outlet</a>
+        <a className="top-link">Help & Contact</a>
   	</div>
      <div className="top-right">
      	{/* <a href="#">Sell</a> */}

@@ -23,6 +23,11 @@ function AdminDashboard() {
 	  totalValue: 0
   });
 
+  const getDisplayName = (user) => {
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    return name || user.businessName || 'N/A';
+  };
+
   useEffect(() => {
      const userStr = localStorage.getItem('user');
 	   if (!userStr) {
@@ -148,13 +153,13 @@ function AdminDashboard() {
 	);
 
   const filteredUsers = users.filter((user) => {
-     const disName = user.role === 'business' ? user.businessName : `${user.firstName || 'N/A'} ${user.lastName || ''}`;
-     return(
+     const disName = getDisplayName(user);
+     return (
 	     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
        disName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-   	   user.role.toLowerCase().includes(searchQuery.toLowerCase())
-     )
-   });
+    	   user.role.toLowerCase().includes(searchQuery.toLowerCase())
+     );
+  });
 
    return (
   	<div className="admin-page-wrapper"> 
@@ -328,7 +333,7 @@ function AdminDashboard() {
 	          	  <div className="modal-body">
         	          <div className="modal-detail-row">
   	          	     <span className="detail-label">Name:</span> 
-          	          <span className="detail-value">{selectedUser.firstName} {selectedUser.lastName}</span>
+          	          <span className="detail-value">{getDisplayName(selectedUser)}</span>
      	          	</div>
 	          	     <div className="modal-detail-row">
        	          	<span className="detail-label">Email:</span> 

@@ -1,64 +1,81 @@
-.sell-page{
-    max-width: 500px;
+.sell-page {
+    max-width: 720px;
     margin: 40px auto;
-    padding: 20px;
+    padding: 0 20px;
     font-family: sans-serif;
     color: #333;
-    border-radius: 12px;
 }
 
-.sell-page h1{
+.sell-page h1 {
+    margin: 0 0 24px;
+    font-size: 32px;
+    color: #111;
     text-align: center;
-    color:#333;
-    margin-bottom: 30px;
 }
 
-.form-group{
+.sell-form {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+    padding: 32px;
+}
+
+.form-group {
     margin-bottom: 20px;
     display: flex;
     flex-direction: column;
 }
 
-.form-group label{
+.form-group label {
     margin-bottom: 8px;
     font-size: 14px;
     color: #555;
 }
 
-.form-group input, .form-group textarea, .form-group select{
-    padding: 10px;
-    font-size: 16px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-}
-
-.sell-button{
+.form-group input,
+.form-group textarea,
+.form-group select {
     width: 100%;
     padding: 12px;
-    background-color: #0052cc;
-    color: white;
-    font-size: 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-family: inherit;
 }
 
-.sell-button:hover{
-    background-color: #003d99;
+.form-group textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.sell-button,
+.back-button {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: none;
+}
+
+.sell-button {
+    background-color: #f5af02;
+    color: #111;
+    border: 1px solid transparent;
+}
+
+.sell-button:hover {
+    opacity: 0.95;
 }
 
 .back-button {
-    width: 100%;
-    padding: 12px;
-    background-color: transparent;
+    margin-top: 12px;
+    background-color: #fff;
     color: #0052cc;
-    font-size: 16px;
     border: 1px solid #0052cc;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 10px;
 }
+
 .back-button:hover {
     background-color: #0052cc;
     color: white;

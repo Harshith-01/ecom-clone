@@ -9,6 +9,7 @@ const cloudinary = require('cloudinary').v2;
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const app = express();
+const nodemailer = require('nodemailer');
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -17,14 +18,20 @@ const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_PORT = process.env.SMTP_PORT;
+const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const SMTP_FROM = process.env.SMTP_FROM;
 const SERVER_PUBLIC_URL = (process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173')
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
 
-if (!SECRET_KEY || !MONGODB_URI || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET  ) {
-    console.error('Missing required environment variables. Check your .env file.');
+if (!SECRET_KEY || !MONGODB_URI || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM) {
+    console.error('Missing required environment variables.');
     process.exit(1);
 }
 
@@ -34,6 +41,21 @@ app.use(express.json());
 const razorpay = new Razorpay({
     key_id: RAZORPAY_KEY_ID,
     key_secret: RAZORPAY_KEY_SECRET
+});
+
+const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_SECURE,
+    auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS
+    },
+});
+
+transporter.verify().then(()=>console.log("SMTP configuration is correct")).catch(err => {
+    console.error("SMTP configuration error:", err);
+    process.exit(1);
 });
 
 cloudinary.config({
@@ -52,6 +74,41 @@ async function handleUpload(file) {
         folder: 'ebay-clone/products'
     });
     return cldRes;
+}
+
+async function sendOrderPlacedEmail(order){
+    const recipient=order?.shippingDetails?.email;
+    if(!recipient) return;
+    await transporter.sendMail({
+        from: SMTP_FROM,
+        to: recipient,
+        subject: `Order Placed Successfully - Order ID: ${order._id}`,
+        text: `Hi ${order.shippingDetails.fullName},\n\nThank you for your purchase!
+         Your order with ID ${order._id} has been placed successfully.
+          We will notify you once it is shipped. `,
+            html: `<p>Hi ${order.shippingDetails.fullName},</p>
+            <p>Order Details:</p>
+            <ul>
+                ${order.products.map(p => `<li>${p.quantity} x ${p.productId.title} - ₹${p.price}</li>`).join('')}
+            </ul>
+            <p>Total Price: ₹${order.totalPrice}</p>
+            <p>We will notify you once it is shipped.</p>
+            <p>Thank you for shopping with us!</p>`
+});
+}
+
+async function sendDeliveryStatusEmail(order,previousStatus,newStatus){
+    const recipient=order?.shippingDetails?.email;
+        if(!recipient) return;
+            await transporter.sendMail({
+            from: SMTP_FROM,
+            to: recipient,
+            subject: `Order status updated - Order ID: ${order._id}`,
+            text: `Hi ${order.shippingDetails.fullName},
+            \n\nThe delivery status of your order with 
+            ID ${order._id} has been updated from "${previousStatus}" 
+            to "${newStatus}".\n\nThank you for shopping with us!`
+});
 }
 
 const storage = multer.memoryStorage();
@@ -375,6 +432,11 @@ paymentStatus:"pending",
 deliveryStatus:"pending"
     });
     await newOrder.save();
+    try{
+        await sendOrderPlacedEmail(newOrder);
+    } catch (mailError) {
+        console.error("Error sending order placed email:", mailError.message);
+    }
     res.status(201).json({
         message:"Order created successfully",
         newOrder,
@@ -387,10 +449,12 @@ razorpayOrderId:order.id,
 
 app.get('/api/orders', async (req, res) => {
     try {
-        const orders = await Order.find().populate('buyerId', 'email').populate('products.productId', 'title price');
-        res.status(200).json( orders );
+        const orders = await Order.find()
+            .populate('buyerId', 'email')
+            .populate('products.productId', 'title price seller');
+        res.status(200).json(orders);
     } catch (error) {
-        res.status(500).json({ message: "Server error", error: error.message });
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 });
 
@@ -406,8 +470,14 @@ app.put('/api/orders/:id/status', async (req, res) => {
         if (!nextStatus) {
             return res.status(400).json({ message: "deliveryStatus is required" });
         }
+        const previousStatus = order.deliveryStatus;
         order.deliveryStatus = nextStatus;
         await order.save();
+        try{
+            await sendDeliveryStatusEmail(order,previousStatus,nextStatus);
+        } catch (mailError) {
+            console.error("Error sending delivery status email:", mailError.message);
+        }
         res.status(200).json({ message: "Delivery status updated successfully", order });
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });

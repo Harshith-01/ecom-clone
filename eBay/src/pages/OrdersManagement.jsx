@@ -7,13 +7,16 @@ function OrdersManagement() {
     const [orders, setOrders] = useState([]);
     const [pendingStatus, setPendingStatus] = useState({});
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
+
 useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (!userStr) {
         navigate('/login');
         return;
     }
-fetchOrders();
+    setCurrentUser(JSON.parse(userStr));
+    fetchOrders();
 }, [navigate]);
 
 const fetchOrders = async () => {
@@ -22,12 +25,15 @@ const fetchOrders = async () => {
     const user = JSON.parse(userStr);
     try {
         const response = await fetch(`${API_BASE_URL}/api/orders`);
-        if (!response.ok) throw new Error("Failed to fetch orders");
+        if (!response.ok) throw new Error('Failed to fetch orders');
         const data = await response.json();
-        setOrders(data);
+        const visibleOrders = user.role === 'admin'
+            ? data
+            : data.filter((order) => order.products.some((p) => p.productId?.seller === user.name));
+        setOrders(visibleOrders);
     } catch (error) {
-        console.error("Error fetching orders:", error);
-        alert("An error occurred while fetching your orders.");
+        console.error('Error fetching orders:', error);
+        alert('An error occurred while fetching your orders.');
     }
 };
 
@@ -79,7 +85,7 @@ return (
     <div className="orders-container">
         <h1>Manage Orders</h1>
         {orders.length === 0 ? (
-            <p>You have no orders yet.</p>
+            <p>{currentUser?.role === 'admin' ? 'No orders yet.' : 'No orders for your listed products yet.'}</p>
         ) : (
             <table className="orders-table">
                 <thead>
