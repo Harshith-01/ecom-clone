@@ -8,6 +8,7 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const dns = require('dns');
 const app = express();
 const nodemailer = require('nodemailer');
 const PORT = process.env.PORT || 5000;
@@ -52,7 +53,7 @@ let transporter = null;
 let emailEnabled = false;
 
 function createSmtpTransport() {
-    const transportOptions = {
+    return nodemailer.createTransport({
         host: SMTP_HOST,
         port: SMTP_PORT,
         secure: SMTP_SECURE,
@@ -62,14 +63,14 @@ function createSmtpTransport() {
         },
         tls: {
             rejectUnauthorized: false
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+        lookup: (hostname, options, callback) => {
+            dns.lookup(hostname, { ...options, family: 4 }, callback);
         }
-    };
-
-    if (SMTP_HOST === 'smtp.gmail.com') {
-        transportOptions.service = 'gmail';
-    }
-
-    return nodemailer.createTransport(transportOptions);
+    });
 }
 
 async function initEmail() {
