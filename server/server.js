@@ -8,7 +8,6 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
-const dns = require('dns');
 const app = express();
 const nodemailer = require('nodemailer');
 const PORT = process.env.PORT || 5000;
@@ -52,24 +51,25 @@ const razorpay = new Razorpay({
 let transporter = null;
 let emailEnabled = false;
 
-function createSmtpTransport(host = SMTP_HOST) {
-    return nodemailer.createTransport({
-        host,
+function createSmtpTransport() {
+    const transportOptions = {
+        host: SMTP_HOST,
         port: SMTP_PORT,
         secure: SMTP_SECURE,
-        name: SMTP_HOST,
         auth: {
             user: SMTP_USER,
             pass: SMTP_PASS
         },
         tls: {
-            rejectUnauthorized: false,
-            servername: SMTP_HOST
-        },
-        lookup: (hostname, options, callback) => {
-            dns.lookup(hostname, { ...options, family: 4 }, callback);
+            rejectUnauthorized: false
         }
-    });
+    };
+
+    if (SMTP_HOST === 'smtp.gmail.com') {
+        transportOptions.service = 'gmail';
+    }
+
+    return nodemailer.createTransport(transportOptions);
 }
 
 async function initEmail() {
@@ -91,19 +91,6 @@ async function initEmail() {
         console.log('SMTP configuration is correct');
     } catch (err) {
         console.warn('SMTP configuration unavailable, email will be disabled:', err.message);
-
-        if (err.code === 'ENETUNREACH' || err.code === 'EAI_AGAIN' || /ipv6/i.test(err.message)) {
-            try {
-                const lookupResult = await dns.promises.lookup(SMTP_HOST, { family: 4 });
-                console.log(`Resolved ${SMTP_HOST} to IPv4 ${lookupResult.address}`);
-                transporter = createSmtpTransport(lookupResult.address);
-                await transporter.verify();
-                emailEnabled = true;
-                console.log('SMTP configuration is correct via IPv4 fallback');
-            } catch (fallbackErr) {
-                console.warn('SMTP IPv4 fallback failed, email is disabled:', fallbackErr.message);
-            }
-        }
     }
 }
 
