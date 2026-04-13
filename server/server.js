@@ -8,6 +8,7 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const dns = require('dns');
 const app = express();
 const nodemailer = require('nodemailer');
 const PORT = process.env.PORT || 5000;
@@ -51,6 +52,10 @@ const transporter = nodemailer.createTransport({
         user: SMTP_USER,
         pass: SMTP_PASS
     },
+    lookup: (hostname, options, callback) => {
+        const lookupOptions = Object.assign({}, options, { family: 4 });
+        dns.lookup(hostname, lookupOptions, callback);
+    }
 });
 
 let emailEnabled = false;

@@ -213,7 +213,34 @@
   margin: 10px 0 5px;
 }
 .product-card p {
-  margin:5px 0;
+  margin: 5px 0;
   color: #555;
   font-size: 18px;
+}
+
+.search-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 20px auto 10px;
+  max-width: 1200px;
+  padding: 0 20px;
+}
+
+.search-results-header h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.clear-search {
+  border: 1px solid #e5e5e5;
+  background: white;
+  color: #333;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.clear-search:hover {
+  background: #f7f7f7;
 }

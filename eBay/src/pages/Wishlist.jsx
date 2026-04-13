@@ -66,7 +66,7 @@ function Wishlist() {
   	  ) : (
         watchlist.map((product) => (
      	   <div key={product._id} className="watchlist-card" onClick={()=> navigate(`/product/${product._id}`)}>
-         <img src={product.images && product.images.length > 0 ? `${API_BASE_URL}${product.images[0]}` : ''} alt={product.title} className="product-image"/>
+         <img src={product.images && product.images.length > 0 ? (product.images[0].startsWith('http') ? product.images[0] : `${API_BASE_URL}${product.images[0]}`) : ''} alt={product.title} className="product-image"/>
        	<h3>{product.title}</h3>
    	     <p>₹{product.price}</p>
           <button className="remove-button" onClick={(e) => { e.stopPropagation(); handleRemoveFromWatchlist(product._id); }}>Remove</button>

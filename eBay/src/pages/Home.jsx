@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react';
 import './Home.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { API_BASE_URL } from '../config/env';
 
 const bannerImages = [
@@ -13,8 +13,11 @@ const bannerImages = [
 
 function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [products, setProducts] = useState([]);
   const [activeSlide, setActiveSlide] = useState(0);
+  const searchTerm = new URLSearchParams(location.search).get('search') || '';
+  const isSearch = Boolean(searchTerm);
   const categories = [
     'Saved', 'Electronics', 'Motors', 'Fashion', 'Collectibles and Art',
     'Sports', 'Health & Beauty', 'Industrial equipment', 'Home & Garden', 'Deals', 'Sell'
@@ -27,6 +30,13 @@ function Home() {
       .catch((err) => console.error('Error fetching products:', err));
   }, []);
 
+  const filteredProducts = isSearch
+    ? products.filter((product) =>
+        product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.category || '').toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : products;
+
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveSlide((current) => (current + 1) % bannerImages.length);
@@ -36,16 +46,45 @@ function Home() {
 
   return (
     <div className="home-wrapper">
-      <nav className="cat-nav">
-        <ul>
-          {categories.map((cat) => (
-            <li key={cat}>{cat}</li>
-          ))}
-        </ul>
-      </nav>
+      {!isSearch && (
+        <nav className="cat-nav">
+          <ul>
+            {categories.map((cat) => (
+              <li key={cat}>{cat}</li>
+            ))}
+          </ul>
+        </nav>
+      )}
 
       <div className="content-container">
-        <section className="carousel-section">
+        {isSearch ? (
+          <>
+            <section className="search-results-section">
+              <div className="search-results-header">
+                <h1>Search results for "{searchTerm}"</h1>
+                <button className="clear-search" onClick={() => navigate('/')}>Clear search</button>
+              </div>
+            </section>
+            <section className="products-section">
+              <h2>Search Results</h2>
+              <div className="products-grid">
+                {filteredProducts.length === 0 ? (
+                  <p>No products found for "{searchTerm}".</p>
+                ) : (
+                  filteredProducts.map((product) => (
+                    <div key={product._id} className="product-card" onClick={() => navigate(`/product/${product._id}`)}>
+                      <img src={product.images && product.images.length > 0 ? product.images[0] : ''} alt={product.title} className="product-image" />
+                      <h3>{product.title}</h3>
+                      <p>₹{product.price}</p>
+                      <p className="seller">Seller: {product.seller}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </>
+        ) : (
+          <section className="carousel-section">
           <img src={bannerImages[activeSlide]} alt="Featured slide" className="carousel-image" />
           <div className="carousel-overlay">
             <div>

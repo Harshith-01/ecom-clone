@@ -10,6 +10,7 @@ function Navbar() {
   const [showProfile, setShowProfile] = React.useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchQuery, setSearchQuery] = React.useState('');
   React.useEffect(() => {
    const userStr = localStorage.getItem('user');
 	if (userStr) {
@@ -17,7 +18,18 @@ function Navbar() {
   } else {
    setCurrentUser(null);
   }
+  const params = new URLSearchParams(location.search);
+  setSearchQuery(params.get('search') || '');
   }, [location]);
+
+  const handleSearch = () => {
+    const query = searchQuery.trim();
+    if (query) {
+      navigate(`/?search=${encodeURIComponent(query)}`);
+    } else {
+      navigate('/');
+    }
+  };
 
   const handleSellClick = () => {
   const userStr = localStorage.getItem('user');
@@ -186,7 +198,13 @@ function Navbar() {
         <span className="search-icon">
   	     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         </span>
-     	<input type="text" placeholder="Search for anything" />
+      	<input
+          type="text"
+          placeholder="Search for anything"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+        />
 	     <select className="cat-select">
        <option>All Categories</option>
    	   <option>Electronics</option>
@@ -194,7 +212,7 @@ function Navbar() {
      	<option>Fashion</option>
 	     </select>
      </div>
-  	<button className="search-btn">Search</button>
+   	<button type="button" className="search-btn" onClick={handleSearch}>Search</button>
      </div>
         
 	  <div className="advanced-link">Advanced</div>
