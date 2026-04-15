@@ -8,9 +8,7 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
-const dns = require('dns');
 const app = express();
-const nodemailer = require('nodemailer');
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -19,16 +17,9 @@ const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10) || undefined;
-const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM;
-const SMTP_ENABLED = process.env.SMTP_ENABLED !== 'false';
-const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'smtp';
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const SENDGRID_FROM = process.env.SENDGRID_FROM || SMTP_FROM;
+const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'resend';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_FROM = process.env.RESEND_FROM || process.env.SMTP_FROM;
 const SERVER_PUBLIC_URL = (process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173')
     .split(',')
@@ -40,11 +31,11 @@ if (!SECRET_KEY || !MONGODB_URI || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !
     process.exit(1);
 }
 
-if (EMAIL_PROVIDER === 'smtp' && SMTP_ENABLED && (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM)) {
-    console.warn('SMTP is enabled but some SMTP environment variables are missing. Email will remain disabled.');
+if (EMAIL_PROVIDER !== 'resend') {
+    console.warn(`Unsupported EMAIL_PROVIDER "${EMAIL_PROVIDER}". Only "resend" is enabled. Email will remain disabled.`);
 }
-if (EMAIL_PROVIDER === 'sendgrid' && !SENDGRID_API_KEY) {
-    console.warn('SendGrid is configured as email provider but SENDGRID_API_KEY is missing. Email will remain disabled.');
+if (!RESEND_API_KEY || !RESEND_FROM) {
+    console.warn('Resend is configured but RESEND_API_KEY or RESEND_FROM is missing. Email will remain disabled.');
 }
 
 app.use(cors({ origin: ALLOWED_ORIGINS }));
@@ -55,70 +46,23 @@ const razorpay = new Razorpay({
     key_secret: RAZORPAY_KEY_SECRET
 });
 
-let transporter = null;
 let emailEnabled = false;
 
-function createSmtpTransport() {
-    const transportOptions = {
-        host: SMTP_HOST,
-        port: SMTP_PORT,
-        secure: SMTP_SECURE,
-        auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS
-        },
-        authMethod: 'LOGIN',
-        logger: true,
-        debug: true,
-        requireTLS: true,
-        tls: {
-            rejectUnauthorized: false
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-        lookup: (hostname, options, callback) => {
-            dns.lookup(hostname, { ...options, family: 4 }, callback);
-        }
-    };
-
-    return nodemailer.createTransport(transportOptions);
-}
 
 async function initEmail() {
-    console.log(`Email provider=${EMAIL_PROVIDER}, SMTP enabled=${SMTP_ENABLED}, host=${SMTP_HOST || 'unset'}, port=${SMTP_PORT || 'unset'}, secure=${SMTP_SECURE}, from=${SMTP_FROM || 'unset'}, sendgrid_from=${SENDGRID_FROM || 'unset'}`);
+    console.log(`Email provider=${EMAIL_PROVIDER}, resend_from=${RESEND_FROM || 'unset'}`);
 
-    if (EMAIL_PROVIDER === 'sendgrid') {
-        if (!SENDGRID_API_KEY || !SENDGRID_FROM) {
-            console.warn('SendGrid provider selected but configuration is incomplete. Email will remain disabled.');
-            return;
-        }
-        emailEnabled = true;
-        console.log('Using SendGrid email provider');
+    if (EMAIL_PROVIDER !== 'resend') {
         return;
     }
 
-    if (!SMTP_ENABLED) {
-        console.log('SMTP is disabled by environment. Email notifications will remain off.');
+    if (!RESEND_API_KEY || !RESEND_FROM) {
+        console.warn('Resend configuration incomplete. Email will remain disabled.');
         return;
     }
 
-    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM) {
-        console.warn('SMTP configuration incomplete. Email will remain disabled.');
-        return;
-    }
-
-    transporter = createSmtpTransport();
-    console.log('Verifying SMTP connection...');
-
-    try {
-        const info = await transporter.verify();
-        emailEnabled = true;
-        console.log('SMTP configuration is correct:', info);
-    } catch (err) {
-        console.warn('SMTP configuration unavailable, email will be disabled:', err.message);
-        console.warn('SMTP verify error details:', err);
-    }
+    emailEnabled = true;
+    console.log('Using Resend email provider');
 }
 
 async function initializeApp() {
@@ -155,42 +99,28 @@ async function sendEmail({to, subject, text, html}) {
         throw new Error('Email provider is not enabled');
     }
 
-    if (EMAIL_PROVIDER === 'sendgrid') {
-        console.log(`Sending email via SendGrid to ${to}`);
-        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${SENDGRID_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                personalizations: [{ to: [{ email: to }] }],
-                from: { email: SENDGRID_FROM },
-                subject,
-                content: [
-                    { type: 'text/plain', value: text || '' },
-                    { type: 'text/html', value: html || text || '' }
-                ]
-            })
-        });
+    console.log(`Sending email via Resend to ${to}`);
+    const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            from: RESEND_FROM,
+            to: [to],
+            subject,
+            text,
+            html
+        })
+    });
 
-        if (!response.ok) {
-            const body = await response.text();
-            throw new Error(`SendGrid failed: ${response.status} ${response.statusText} - ${body}`);
-        }
-
-        console.log(`SendGrid email accepted for delivery to ${to}`);
-        return { provider: 'sendgrid' };
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+        throw new Error(`Resend failed: ${response.status} ${response.statusText} - ${JSON.stringify(body)}`);
     }
 
-    console.log(`Sending email via SMTP to ${to}`);
-    return transporter.sendMail({
-        from: SMTP_FROM,
-        to,
-        subject,
-        text,
-        html
-    });
+    return { provider: 'resend', id: body?.id };
 }
 
 async function sendOrderPlacedEmail(order){
@@ -201,7 +131,7 @@ async function sendOrderPlacedEmail(order){
         return;
     }
     if (!emailEnabled) {
-        console.warn(`Email skipped: SMTP/sendgrid is not enabled for order ${order._id}.`);
+        console.warn(`Email skipped: email provider is not enabled for order ${order._id}.`);
         return;
     }
 
@@ -234,7 +164,7 @@ async function sendDeliveryStatusEmail(order,previousStatus,newStatus){
         return;
     }
     if (!emailEnabled) {
-        console.warn(`Delivery email skipped: SMTP/sendgrid is not enabled for order ${order._id}.`);
+        console.warn(`Delivery email skipped: email provider is not enabled for order ${order._id}.`);
         return;
     }
 
