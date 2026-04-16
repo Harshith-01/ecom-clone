@@ -84,7 +84,7 @@ function Navbar() {
    	   <span className="hi-user">Hi! <Link to="/login" className="blue-link">Sign in</Link> or <Link to="/register" className="blue-link">register</Link></span>
        )}
      	<a href="#">Daily Deals</a>
-	     <a className="top-link">Brand Outlet</a>
+	     {/* <a className="top-link">Brand Outlet</a> */}
         <a className="top-link">Help & Contact</a>
   	</div>
      <div className="top-right">
@@ -210,12 +210,17 @@ function Navbar() {
    	   <option>Electronics</option>
        <option>Motors</option>
      	<option>Fashion</option>
+      <option>Collectibles & Art</option>
+      <option>Sports</option>
+      <option>Health & Beauty</option>
+      <option>Industrial Equipment</option>
+      <option>Home & Garden</option>
 	     </select>
      </div>
    	<button type="button" className="search-btn" onClick={handleSearch}>Search</button>
      </div>
         
-	  <div className="advanced-link">Advanced</div>
+	  
   </div>
    </header>
   )

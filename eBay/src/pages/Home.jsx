@@ -18,10 +18,10 @@ function Home() {
   const [activeSlide, setActiveSlide] = useState(0);
   const searchTerm = new URLSearchParams(location.search).get('search') || '';
   const isSearch = Boolean(searchTerm);
-  const categories = [
-    'Saved', 'Electronics', 'Motors', 'Fashion', 'Collectibles and Art',
-    'Sports', 'Health & Beauty', 'Industrial equipment', 'Home & Garden', 'Deals', 'Sell'
-  ];
+  // const categories = [
+  //   'Saved', 'Electronics', 'Motors', 'Fashion', 'Collectibles and Art',
+  //   'Sports', 'Health & Beauty', 'Industrial equipment', 'Home & Garden', 'Deals', 'Sell'
+  // ];
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/products`)
@@ -49,9 +49,18 @@ function Home() {
       {!isSearch && (
         <nav className="cat-nav">
           <ul>
-            {categories.map((cat) => (
+            {/* {categories.map((cat) => (
               <li key={cat}>{cat}</li>
-            ))}
+            ))} */}
+            <li>Electronics</li>
+            <li>Motors</li>
+            <li>Fashion</li>
+            <li>Collectibles and Art</li>
+            <li>Sports</li>
+            <li>Health & Beauty</li>
+            <li>Industrial Equipment</li>
+            <li>Home & Garden</li>
+            <li>Sell</li>
           </ul>
         </nav>
       )}
