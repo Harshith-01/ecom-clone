@@ -50,7 +50,7 @@ function Navbar() {
    localStorage.removeItem('user');
   setCurrentUser(null);
 	setShowProfile(false);
-  navigate('/');
+  window.location.href = '/';
   };
 
   const handleWatchlistClick = () => {
@@ -89,8 +89,8 @@ function Navbar() {
   	</div>
      <div className="top-right">
      	{/* <a href="#">Sell</a> */}
-	     <a className="sell-link" onClick={handleSellClick}>My eBay</a>
-       <a className="watchlist-link" onClick={handleWatchlistClick}>Watchlist</a>
+	     <a className="sell-link1" onClick={handleSellClick}>My eBay</a>
+       <a className="watchlist-link1" onClick={handleWatchlistClick}>Watchlist</a>
    	   {/* <div className="dropdown">My eBay</div> */}
        {/* <Link to="/admin" className="dropdown">Admin</Link> */}
      	<button className="icon-btn">

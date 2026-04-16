@@ -13,15 +13,13 @@ const bannerImages = [
 
 function Home() {
   const navigate = useNavigate();
+  const userStr = localStorage.getItem('user');
+  const currentUser = userStr ? JSON.parse(userStr) : null;
   const location = useLocation();
   const [products, setProducts] = useState([]);
   const [activeSlide, setActiveSlide] = useState(0);
   const searchTerm = new URLSearchParams(location.search).get('search') || '';
   const isSearch = Boolean(searchTerm);
-  // const categories = [
-  //   'Saved', 'Electronics', 'Motors', 'Fashion', 'Collectibles and Art',
-  //   'Sports', 'Health & Beauty', 'Industrial equipment', 'Home & Garden', 'Deals', 'Sell'
-  // ];
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/products`)
@@ -29,7 +27,7 @@ function Home() {
       .then((data) => setProducts(data))
       .catch((err) => console.error('Error fetching products:', err));
   }, []);
-
+ 
   const filteredProducts = isSearch
     ? products.filter((product) =>
         product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,9 +47,6 @@ function Home() {
       {!isSearch && (
         <nav className="cat-nav">
           <ul>
-            {/* {categories.map((cat) => (
-              <li key={cat}>{cat}</li>
-            ))} */}
             <li>Electronics</li>
             <li>Motors</li>
             <li>Fashion</li>
@@ -60,7 +55,7 @@ function Home() {
             <li>Health & Beauty</li>
             <li>Industrial Equipment</li>
             <li>Home & Garden</li>
-            <li>Sell</li>
+            <li onClick={()=>navigate("/sell")}>Sell</li>
           </ul>
         </nav>
       )}
@@ -119,14 +114,14 @@ function Home() {
                 ))}
               </div>
             </section>
-
+                {!currentUser && (
             <section className="feature-bar">
               <div>
                 <h2>Shopping made easy</h2>
                 <p>Enjoy reliability, secure deliveries and hassle-free returns.</p>
               </div>
-              <button className="cta-black">Start now</button>
-            </section>
+              <button className="cta-black" onClick={()=>navigate("/login")}>Start now</button>
+            </section>)}
 
             <section className="products-section">
               <h2>Featured Products</h2>
