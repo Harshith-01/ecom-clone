@@ -170,6 +170,7 @@ function AdminDashboard() {
    	        activeTab={activeTab}
 			showUsersTab={true}
           	setActiveTab={setActiveTab}
+			userRole="admin"
      	  />
 	     </div>
         <div className="admin-container">

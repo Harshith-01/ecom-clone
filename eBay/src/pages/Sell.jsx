@@ -68,32 +68,36 @@ function Sell() {
           	<label>Title</label>
      	     <input type="text" placeholder="Product title" required value={title} onChange={(e) => setTitle(e.target.value)} />
 	        </div>
-        	<div className="form-group">
-  	       <label>Price</label>
-          	<input type="number" placeholder="Product price" required value={price} onChange={(e) => setPrice(e.target.value)} />
-     	   </div>
+		  <div className="sell-row">
+	       	<div className="form-group">
+	 	      <label>Price</label>
+	         	<input type="number" placeholder="Product price" required value={price} onChange={(e) => setPrice(e.target.value)} />
+	    	   </div>
 	       <div className="form-group">
-       	  <label>Quantity</label>
-   	        <input type="number" placeholder="Quantity" required value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+	      	  <label>Quantity</label>
+	   	        <input type="number" placeholder="Quantity" required value={quantity} onChange={(e) => setQuantity(e.target.value)} />
           </div>
+		  </div>
      	  <div className="form-group">
 	          <label>Description</label>
         	   <textarea placeholder="Product description" required value={description} onChange={(e) => setDescription(e.target.value)} />
   	     </div>
+		  <div className="sell-row">
           <div className="form-group">
-     	     <label>Category</label>
+	     	 <label>Category</label>
 	          <select value={category} onChange={(e) => setCategory(e.target.value)} required>
-       	     <option value="">Select a category</option>
-   	          <option value="electronics">Electronics</option>
-          	   <option value="fashion">Fashion</option>
-     	       <option value="home">Home & Garden</option>
+	       	 <option value="">Select a category</option>
+	   	      <option value="electronics">Electronics</option>
+	         	   <option value="fashion">Fashion</option>
+	    	       <option value="home">Home & Garden</option>
 	          	<option value="sports">Sports & Outdoors</option>
-        	   </select>
-  	     </div>
+	        	   </select>
+	     </div>
           <div className="form-group">
      	     <label>Product Images</label>
 	          <input type="file" multiple required onChange={(e) => setImages(e.target.files)} />
        	</div>
+		  </div>
    	     <button className="sell-button" type="submit">List Product</button>
           <button className="back-button" type="button" onClick={() => navigate(-1)}>Back</button>
      	</form>

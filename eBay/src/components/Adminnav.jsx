@@ -12,8 +12,8 @@ function Adminnav({
 }) {
 	const navigate = useNavigate();
 	const isAdmin = userRole === 'admin';
-	const canManageOrders = isAdmin || userRole === 'business';
-	const canViewMyOrders = !isAdmin;
+	const canManageOrders = true;
+	const canViewMyOrders = true;
 
 	const goToProductsTab = () => {
 		setActiveTab('products');

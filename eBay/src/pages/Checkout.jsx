@@ -41,8 +41,9 @@ const razorpayKey = RAZORPAY_KEY_ID;
       subtotal += itemPrice * itemQuantity;
    }
 
-   // const deliveryCharge = subtotal > 0 ? 40 : 0;
-   const finalTotal = subtotal ; //+ deliveryCharge;
+   const taxableAmount = Number(subtotal.toFixed(2));
+   const gstAmount = Number((taxableAmount * 0.18).toFixed(2));
+   const finalTotal = Number((taxableAmount + gstAmount).toFixed(2));
 
    const handlePlaceOrder = async (e) => {
       e.preventDefault();
@@ -65,6 +66,8 @@ const razorpayKey = RAZORPAY_KEY_ID;
       const orderData = {
          buyerId: user.id,
          products: products,
+         taxableAmount: taxableAmount,
+         gstAmount: gstAmount,
          totalPrice: finalTotal,
          shippingDetails: {
             fullName: fullName,
@@ -201,8 +204,23 @@ razorpayObject.open();
                   </div>
                </div>
 
+               <div className="checkout-price-box">
+                  <div className="price-row">
+                     <span>Subtotal</span>
+                     <span>₹{taxableAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="price-row">
+                     <span>GST (18%)</span>
+                     <span>₹{gstAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="price-row total-row">
+                     <span>Total Payable</span>
+                     <span>₹{finalTotal.toFixed(2)}</span>
+                  </div>
+               </div>
+
                <button className="place-order-btn" type="submit" disabled={loading}>
-                  {loading ? 'Placing...' : 'Buy Now'}
+                  {loading ? 'Placing...' : `Pay ₹${finalTotal.toFixed(2)}`}
                </button>
             </form>
          </div>

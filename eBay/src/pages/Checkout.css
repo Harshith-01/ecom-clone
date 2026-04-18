@@ -58,6 +58,31 @@
    gap: 12px;
 }
 
+.checkout-price-box {
+   margin: 8px 0 12px;
+   border: 1px solid #e2e2e2;
+   border-radius: 6px;
+   padding: 12px;
+   background: #fafafa;
+}
+
+.price-row {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   font-size: 14px;
+   color: #333;
+   padding: 4px 0;
+}
+
+.total-row {
+   margin-top: 4px;
+   padding-top: 8px;
+   border-top: 1px solid #e2e2e2;
+   font-weight: 600;
+   color: #111;
+}
+
 .place-order-btn {
    margin-top: 8px;
    width: 100%;

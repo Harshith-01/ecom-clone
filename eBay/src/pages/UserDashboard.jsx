@@ -13,6 +13,7 @@ function UserDashboard() {
   const [selectedProduct, setSelectedProduct] = useState(null);
 	const [editProductData, setEditProductData] = useState(null);
   const [newEditImages, setNewEditImages] = useState([]);
+	const [currentUser, setCurrentUser] = useState(null);
 
   const navigate = useNavigate();
 
@@ -28,6 +29,8 @@ function UserDashboard() {
      	navigate('/admin', { replace: true });
 	     return;
      }
+
+	  setCurrentUser(user);
 
      fetchProducts(user.name);
   }, [navigate]);
@@ -120,7 +123,7 @@ function UserDashboard() {
         	   setSearchQuery={setSearchQuery}
   	       activeTab={activeTab}
           	setActiveTab={setActiveTab}
-     	     
+			userRole={currentUser?.role || 'personal'}
 	          productTabLabel="My Products"
        	/>
    	   </div>

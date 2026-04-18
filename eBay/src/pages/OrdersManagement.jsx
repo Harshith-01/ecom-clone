@@ -20,10 +20,6 @@ useEffect(() => {
         return;
     }
     const parsedUser = JSON.parse(userStr);
-    if (parsedUser.role === 'personal') {
-        navigate('/my-orders', { replace: true });
-        return;
-    }
     setCurrentUser(parsedUser);
     fetchOrders();
 }, [navigate]);
@@ -44,7 +40,9 @@ const fetchOrders = async () => {
         const data = await response.json();
         const visibleOrders = user.role === 'admin'
             ? data
-            : data.filter((order) => order.products.some((p) => p.productId?.seller === user.name));
+            : user.role === 'business'
+                ? data.filter((order) => order.products.some((p) => p.productId?.sellerId === user.id || p.productId?.seller === user.name))
+                : data.filter((order) => order.buyerId?._id === user.id);
         setOrders(visibleOrders);
     } catch (error) {
         console.error('Error fetching orders:', error);
@@ -113,6 +111,8 @@ const filteredOrders = orders.filter((order) => {
     );
 });
 
+const canUpdateOrders = currentUser?.role === 'admin' || currentUser?.role === 'business';
+
 return (
     <div className="admin-page-wrapper">
     <div className="admin-navbar">
@@ -134,7 +134,7 @@ return (
     <div className="orders-container">
         <h1>Manage Orders</h1>
         {filteredOrders.length === 0 ? (
-            <p>{currentUser?.role === 'admin' ? 'No orders yet.' : 'No orders for your listed products yet.'}</p>
+            <p>{currentUser?.role === 'admin' ? 'No orders yet.' : currentUser?.role === 'business' ? 'No orders for your listed products yet.' : 'No orders found.'}</p>
         ) : (
             <table className="orders-table">
                 <thead>
@@ -164,17 +164,21 @@ return (
                         <td>₹{order.totalPrice}</td>
                         <td>{order.paymentStatus}</td>
                         <td className="status-cell">
-                            <select value={pendingStatus[order._id] || order.deliveryStatus} onChange={(e) => handleStatusChange(order._id, e.target.value)}>
-                                <option value="pending">Pending</option>
-                                <option value="shipped">Shipped</option>
-                                <option value="delivered">Delivered</option>
-                            </select>
+                            {canUpdateOrders ? (
+                                <select value={pendingStatus[order._id] || order.deliveryStatus} onChange={(e) => handleStatusChange(order._id, e.target.value)}>
+                                    <option value="pending">Pending</option>
+                                    <option value="shipped">Shipped</option>
+                                    <option value="delivered">Delivered</option>
+                                </select>
+                            ) : (
+                                order.deliveryStatus
+                            )}
                         </td>
                         <td>{new Date(order.createdAt).toLocaleDateString()}</td>
                         <td className="actions-cell">
                             <button className="view-btn" onClick={()=>setSelectedOrder(order)}>View</button>
-                            <button className="edit-btn" onClick={() => handleSave(order._id)} >Save</button>
-                            <button className="delete-btn" onClick={() => handleDelete(order._id)}>Delete</button>
+                            {canUpdateOrders && <button className="edit-btn" onClick={() => handleSave(order._id)} >Save</button>}
+                            {canUpdateOrders && <button className="delete-btn" onClick={() => handleDelete(order._id)}>Delete</button>}
                         </td>
                     </tr>
                     )}

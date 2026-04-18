@@ -73,8 +73,14 @@ function computeInvoiceTotals(order) {
         const unitPrice = Number(product?.price) || 0;
         return sum + (quantity * unitPrice);
     }, 0);
-    const taxableAmount = roundToTwo((Number(order?.totalPrice) || 0) > 0 ? Number(order.totalPrice) : fallbackSubtotal);
-    const gstAmount = roundToTwo(taxableAmount * GST_RATE);
+
+    const hasStoredTax = Number.isFinite(Number(order?.taxableAmount)) && Number.isFinite(Number(order?.gstAmount));
+    const taxableAmount = hasStoredTax
+        ? roundToTwo(Number(order.taxableAmount))
+        : roundToTwo(fallbackSubtotal > 0 ? fallbackSubtotal : Number(order?.totalPrice));
+    const gstAmount = hasStoredTax
+        ? roundToTwo(Number(order.gstAmount))
+        : roundToTwo(taxableAmount * GST_RATE);
     const grandTotal = roundToTwo(taxableAmount + gstAmount);
 
     return {
@@ -491,6 +497,8 @@ const OrderSchema = new mongoose.Schema({
         quantity: { type: Number, required: true },
         price: { type: Number, required: true }
     }],
+    taxableAmount: { type: Number, default: 0 },
+    gstAmount: { type: Number, default: 0 },
     totalPrice: { type: Number, required: true },
     shippingDetails: {
         fullName: String,
@@ -767,7 +775,7 @@ app.delete('/api/users/:id/watchlist/:productId', async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
 try{
-    const{buyerId, products, totalPrice, shippingDetails}=req.body;
+    const{buyerId, products, taxableAmount, gstAmount, totalPrice, shippingDetails}=req.body;
     const options={
         amount:Math.round(totalPrice*100),
         currency:"INR",
@@ -777,6 +785,8 @@ try{
     const newOrder= new Order({
     buyerId,
     products,
+    taxableAmount,
+    gstAmount,
     totalPrice,
 shippingDetails,
 paymentStatus:"pending",

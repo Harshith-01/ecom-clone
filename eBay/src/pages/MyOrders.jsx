@@ -18,10 +18,6 @@ useEffect(() => {
         return;
     }
     const parsedUser = JSON.parse(userStr);
-    if (parsedUser.role === 'admin') {
-        navigate('/orders', { replace: true });
-        return;
-    }
     setCurrentUser(parsedUser);
     fetchOrders();
 }, [navigate]);
@@ -76,9 +72,9 @@ return (
             setSearchQuery={setSearchQuery}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            showUsersTab={false}
+            showUsersTab={currentUser?.role === 'admin'}
             userRole={currentUser?.role || 'personal'}
-            productTabLabel="My Products"
+            productTabLabel={currentUser?.role === 'admin' ? 'Manage Products' : 'My Products'}
         />
     </div>
     <div className="admin-container">

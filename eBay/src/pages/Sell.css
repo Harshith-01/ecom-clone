@@ -26,6 +26,12 @@
     flex-direction: column;
 }
 
+.sell-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
 .form-group label {
     margin-bottom: 8px;
     font-size: 14px;
@@ -79,4 +85,10 @@
 .back-button:hover {
     background-color: #0052cc;
     color: white;
+}
+
+@media (max-width: 720px) {
+    .sell-row {
+        grid-template-columns: 1fr;
+    }
 }
