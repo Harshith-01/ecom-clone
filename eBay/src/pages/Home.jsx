@@ -14,7 +14,6 @@ const bannerImages = [
 function Home() {
   const navigate = useNavigate();
   const userStr = localStorage.getItem('user');
-  const currentUser = userStr ? JSON.parse(userStr) : null;
   const location = useLocation();
   const [products, setProducts] = useState([]);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -114,7 +113,7 @@ function Home() {
                 ))}
               </div>
             </section>
-                {!currentUser && (
+                {!userStr && (
             <section className="feature-bar">
               <div>
                 <h2>Shopping made easy</h2>

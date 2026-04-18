@@ -1,8 +1,33 @@
 ﻿import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './Adminnav.css';
 
-function Adminnav({ searchQuery, setSearchQuery, activeTab, setActiveTab, showUsersTab = true, productTabLabel = 'Manage Products' }) {
+function Adminnav({
+	 searchQuery,
+	 setSearchQuery,
+	 setActiveTab,
+	 showUsersTab = false,
+	 productTabLabel = 'Manage Products',
+	 userRole = 'personal'
+}) {
+	const navigate = useNavigate();
+	const isAdmin = userRole === 'admin';
+	const canManageOrders = isAdmin || userRole === 'business';
+	const canViewMyOrders = !isAdmin;
+
+	const goToProductsTab = () => {
+		setActiveTab('products');
+		navigate(isAdmin ? '/admin' : '/dashboard');
+	};
+
+	const goToUsersTab = () => {
+		if (!isAdmin) {
+			return;
+		}
+		setActiveTab('users');
+		navigate('/admin');
+	};
+
    return (
   <nav className="admin-nav">
 	  <div className="admin-nav-left">
@@ -23,18 +48,23 @@ function Adminnav({ searchQuery, setSearchQuery, activeTab, setActiveTab, showUs
 	     </button>
 		 
 
-  	  <button onClick={() => setActiveTab('products')} className="product-btn">
+	  <button onClick={goToProductsTab} className="product-btn">
           {productTabLabel}
      	</button>
-	     {showUsersTab && (
-       	<button onClick={() => setActiveTab('users')} className="user-btn">
+	     {showUsersTab && isAdmin && (
+	       	<button onClick={goToUsersTab} className="user-btn">
    	        Manage Users
           </button>
+		  
      	)}
-		<button className="orders-btn">
+		{canManageOrders && <button className="orders-btn">
 	 	  <Link to="/orders" className="orders-link">Manage Orders</Link>
-	     </button>
+	     </button>}
+		 {canViewMyOrders && <button className="my-orders-btn">
+	 	  <Link to="/my-orders" className="my-orders-link">My Orders</Link>
+	     </button>}
 	   </div>
+	   
    </nav>
 );
 }

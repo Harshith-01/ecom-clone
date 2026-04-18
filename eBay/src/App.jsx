@@ -14,9 +14,10 @@ import Wishlist from './pages/Wishlist';
 import Cart from './pages/Cart';
 import OrdersManagement from './pages/OrdersManagement';
 import Checkout from './pages/Checkout';
+import MyOrders from './pages/MyOrders';
 function Layout() {
   const location = useLocation();
-  const isComponentsPage = ['/admin', '/dashboard', '/sell'].includes(location.pathname);
+  const isComponentsPage = ['/admin', '/dashboard', '/sell', '/orders', '/my-orders'].includes(location.pathname);
   // const isAdminDashboard = location.pathname === '/admin';
   // const isSellPage = location.pathname === '/sell';
   return (
@@ -35,6 +36,7 @@ function Layout() {
 	  <Route path="/watchlist" element={<Wishlist />} />
      <Route path="/cart" element={<Cart />} />
      <Route path="/orders" element={<OrdersManagement />} />
+      <Route path="/my-orders" element={<MyOrders />} />
       <Route path="/checkout" element={<Checkout />} />
   </Routes>
 

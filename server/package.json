@@ -21,6 +21,7 @@
     "mongoose": "^9.2.0",
     "multer": "^2.0.2",
     "nodemailer": "^8.0.5",
+    "pdfkit": "^0.18.0",
     "razorpay": "^2.9.6"
   },
   "devDependencies": {

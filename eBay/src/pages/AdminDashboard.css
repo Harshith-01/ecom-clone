@@ -81,7 +81,7 @@ body {
     background-color: #2b50c4;
 } */
 
-.product-btn, .user-btn, .sell-link, .orders-btn {
+.product-btn, .user-btn, .sell-link, .orders-btn, .my-orders-btn {
     background: transparent;
     border: none;
     color: #111;

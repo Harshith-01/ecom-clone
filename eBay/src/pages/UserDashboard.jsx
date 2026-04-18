@@ -120,7 +120,7 @@ function UserDashboard() {
         	   setSearchQuery={setSearchQuery}
   	       activeTab={activeTab}
           	setActiveTab={setActiveTab}
-     	     showUsersTab={false}
+     	     
 	          productTabLabel="My Products"
        	/>
    	   </div>

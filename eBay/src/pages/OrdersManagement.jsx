@@ -2,12 +2,16 @@ import React, { useState, useEffect } from "react";
 import './OrdersManagement.css';
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from '../config/env';
+import Adminnav from '../components/Adminnav';
+import './AdminDashboard.css';
 function OrdersManagement() {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [pendingStatus, setPendingStatus] = useState({});
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeTab, setActiveTab] = useState('orders');
 
 useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -15,9 +19,20 @@ useEffect(() => {
         navigate('/login');
         return;
     }
-    setCurrentUser(JSON.parse(userStr));
+    const parsedUser = JSON.parse(userStr);
+    if (parsedUser.role === 'personal') {
+        navigate('/my-orders', { replace: true });
+        return;
+    }
+    setCurrentUser(parsedUser);
     fetchOrders();
 }, [navigate]);
+
+const handleSignOut = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    navigate('/login');
+};
 
 const fetchOrders = async () => {
     const userStr = localStorage.getItem('user');
@@ -80,11 +95,45 @@ const handleDelete=async(orderId)=>{
     }
 };
 
+const filteredOrders = orders.filter((order) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) {
+        return true;
+    }
+
+    const productsText = order.products
+        .map((p) => p.productId?.title || '')
+        .join(' ')
+        .toLowerCase();
+
+    return (
+        String(order._id).toLowerCase().includes(query) ||
+        String(order.buyerId?.email || '').toLowerCase().includes(query) ||
+        productsText.includes(query)
+    );
+});
+
 return (
+    <div className="admin-page-wrapper">
+    <div className="admin-navbar">
+        <Adminnav
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            showUsersTab={currentUser?.role === 'admin'}
+            userRole={currentUser?.role || 'personal'}
+            productTabLabel={currentUser?.role === 'admin' ? 'Manage Products' : 'My Products'}
+        />
+    </div>
+    <div className="admin-container">
+    <div className="admin-header-controls">
+        <button className="signout-btn" onClick={handleSignOut}>Logout</button>
+    </div>
     <div className="table-wrapper">
     <div className="orders-container">
         <h1>Manage Orders</h1>
-        {orders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
             <p>{currentUser?.role === 'admin' ? 'No orders yet.' : 'No orders for your listed products yet.'}</p>
         ) : (
             <table className="orders-table">
@@ -101,7 +150,7 @@ return (
                     </tr>
                 </thead>
                 <tbody>
-                    {orders.map((order,index)=>
+                    {filteredOrders.map((order,index)=>
                     <tr key={order._id || index}>
                         <td>{order._id}</td>
                         <td>{order.buyerId ? order.buyerId.email : 'N/A'}</td>
@@ -133,6 +182,7 @@ return (
             </table>
         )}
     </div>
+    </div>
               {selectedOrder && (
             <div className="modal" onClick={()=>setSelectedOrder(null)}>
                 <div className="modal-content">
@@ -156,6 +206,7 @@ return (
                 </div>
             </div>
         )}
+    </div>
 </div>
 )
 }

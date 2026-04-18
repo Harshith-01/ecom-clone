@@ -32,6 +32,7 @@ function Sell() {
      formData.append('category', category);
 	  formData.append('quantity', quantity);
      formData.append('seller', user.name);
+	  formData.append('sellerId', user.id);
 
      for (let i = 0; i < images.length; i++) {
      	formData.append('productImages', images[i]);

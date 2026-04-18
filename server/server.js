@@ -8,6 +8,7 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const PDFDocument = require('pdfkit');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.JWT_SECRET;
@@ -47,6 +48,249 @@ const razorpay = new Razorpay({
 });
 
 let emailEnabled = false;
+const GST_RATE = 0.18;
+
+function roundToTwo(value) {
+    return Number((Number(value) || 0).toFixed(2));
+}
+
+function formatInr(value) {
+    return `₹${roundToTwo(value).toFixed(2)}`;
+}
+
+function formatDisplayDate(dateValue) {
+    const date = dateValue ? new Date(dateValue) : new Date();
+    return date.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
+}
+
+function computeInvoiceTotals(order) {
+    const fallbackSubtotal = (order?.products || []).reduce((sum, product) => {
+        const quantity = Number(product?.quantity) || 0;
+        const unitPrice = Number(product?.price) || 0;
+        return sum + (quantity * unitPrice);
+    }, 0);
+    const taxableAmount = roundToTwo((Number(order?.totalPrice) || 0) > 0 ? Number(order.totalPrice) : fallbackSubtotal);
+    const gstAmount = roundToTwo(taxableAmount * GST_RATE);
+    const grandTotal = roundToTwo(taxableAmount + gstAmount);
+
+    return {
+        taxableAmount,
+        gstAmount,
+        grandTotal,
+        gstRatePercent: 18
+    };
+}
+
+function buildInvoiceNumber(order) {
+    const year = new Date(order?.createdAt || Date.now()).getFullYear();
+    const suffix = String(order?._id || '').slice(-6).toUpperCase() || Date.now().toString().slice(-6);
+    return `INV-${year}-${suffix}`;
+}
+
+function buildSellerAddressLine(sellerUser) {
+    const addressParts = [
+        sellerUser?.businessAddressLine,
+        sellerUser?.businessCity,
+        sellerUser?.businessState,
+        sellerUser?.businessPincode,
+        sellerUser?.businessCountry
+    ].filter(Boolean);
+    return addressParts.length > 0 ? addressParts.join(', ') : 'Address not provided';
+}
+
+async function getPrimarySellerProfile(order) {
+    const sellerIdSet = new Set();
+    const sellerNameSet = new Set();
+
+    for (const lineItem of (order?.products || [])) {
+        const product = lineItem?.productId;
+        const sellerId = product?.sellerId?._id || product?.sellerId;
+        const sellerName = product?.seller;
+
+        if (sellerId) {
+            sellerIdSet.add(String(sellerId));
+        }
+        if (sellerName) {
+            sellerNameSet.add(String(sellerName).trim());
+        }
+    }
+
+    if (sellerIdSet.size > 1) {
+        console.warn(`Order ${order?._id} contains multiple sellerIds; invoice will use first seller profile.`);
+    }
+
+    const firstSellerId = [...sellerIdSet][0];
+    if (firstSellerId) {
+        return User.findById(firstSellerId);
+    }
+
+    const firstSellerName = [...sellerNameSet][0];
+    if (firstSellerName) {
+        return User.findOne({
+            $or: [
+                { businessName: firstSellerName },
+                { firstName: firstSellerName }
+            ]
+        });
+    }
+
+    return null;
+}
+
+async function generateGstInvoicePdf(order, sellerUser) {
+    const totals = computeInvoiceTotals(order);
+    const invoiceNumber = buildInvoiceNumber(order);
+    const sellerName = sellerUser?.businessName || sellerUser?.firstName || order?.products?.[0]?.productId?.seller || 'Seller not available';
+    const sellerGstin = sellerUser?.gstin || 'GSTIN not provided';
+    const sellerAddress = buildSellerAddressLine(sellerUser);
+    const buyerAddressParts = [
+        order?.shippingDetails?.addressLine,
+        order?.shippingDetails?.city,
+        order?.shippingDetails?.state,
+        order?.shippingDetails?.pincode,
+        order?.shippingDetails?.country
+    ].filter(Boolean);
+    const buyerAddress = buyerAddressParts.length > 0 ? buyerAddressParts.join(', ') : 'Address not provided';
+
+    const generateHr = (doc, y) => {
+        doc
+            .strokeColor('#aaaaaa')
+            .lineWidth(1)
+            .moveTo(50, y)
+            .lineTo(550, y)
+            .stroke();
+    };
+
+    const generateTableRow = (doc, y, c1, c2, c3, c4, c5) => {
+        doc
+            .fontSize(10)
+            .text(c1, 50, y)
+            .text(c2, 150, y)
+            .text(c3, 280, y, { width: 90, align: 'right' })
+            .text(c4, 370, y, { width: 90, align: 'right' })
+            .text(c5, 0, y, { align: 'right' });
+    };
+
+    const generateHeader = (doc) => {
+        doc
+            .fillColor('#444444')
+            .fontSize(20)
+            .text('eBay Clone', 50, 57)
+            .fontSize(10)
+            .text(sellerName, 200, 50, { align: 'right' })
+            .text(sellerAddress, 200, 65, { align: 'right' })
+            .text(`GSTIN: ${sellerGstin}`, 200, 80, { align: 'right' })
+            .moveDown();
+    };
+
+    const generateCustomerInformation = (doc) => {
+        doc
+            .fillColor('#444444')
+            .fontSize(20)
+            .text('GST Tax Invoice', 50, 160);
+
+        generateHr(doc, 185);
+
+        const customerInformationTop = 200;
+        doc
+            .fontSize(10)
+            .text('Invoice Number:', 50, customerInformationTop)
+            .font('Helvetica-Bold')
+            .text(invoiceNumber, 150, customerInformationTop)
+            .font('Helvetica')
+            .text('Order ID:', 50, customerInformationTop + 15)
+            .text(String(order?._id || '-'), 150, customerInformationTop + 15)
+            .text('Invoice Date:', 50, customerInformationTop + 30)
+            .text(formatDisplayDate(order?.createdAt), 150, customerInformationTop + 30)
+            .text('Balance Due:', 50, customerInformationTop + 45)
+            .text(formatInr(totals.grandTotal), 150, customerInformationTop + 45)
+            .font('Helvetica-Bold')
+            .text(order?.shippingDetails?.fullName || 'Customer', 300, customerInformationTop)
+            .font('Helvetica')
+            .text(order?.shippingDetails?.email || '-', 300, customerInformationTop + 15)
+            .text(order?.shippingDetails?.mobileNumber || '-', 300, customerInformationTop + 30)
+            .text(buyerAddress, 300, customerInformationTop + 45)
+            .moveDown();
+
+        generateHr(doc, 270);
+    };
+
+    const generateInvoiceTable = (doc) => {
+        let i;
+        const invoiceTableTop = 300;
+
+        doc.font('Helvetica-Bold');
+        generateTableRow(doc, invoiceTableTop, 'Item', 'Description', 'Unit Cost', 'Quantity', 'Line Total');
+        generateHr(doc, invoiceTableTop + 20);
+        doc.font('Helvetica');
+
+        for (i = 0; i < (order?.products || []).length; i += 1) {
+            const item = order.products[i];
+            const qty = Number(item?.quantity) || 0;
+            const unit = Number(item?.price) || 0;
+            const lineTotal = roundToTwo(qty * unit);
+            const position = invoiceTableTop + (i + 1) * 30;
+
+            generateTableRow(
+                doc,
+                position,
+                String(i + 1),
+                item?.productId?.title || `Product ${i + 1}`,
+                formatInr(unit),
+                String(qty),
+                formatInr(lineTotal)
+            );
+
+            generateHr(doc, position + 20);
+        }
+
+        const subtotalPosition = invoiceTableTop + (i + 1) * 30;
+        generateTableRow(doc, subtotalPosition, '', '', 'Taxable Value', '', formatInr(totals.taxableAmount));
+
+        const gstPosition = subtotalPosition + 20;
+        generateTableRow(doc, gstPosition, '', '', 'GST (18%)', '', formatInr(totals.gstAmount));
+
+        const totalPosition = gstPosition + 25;
+        doc.font('Helvetica-Bold');
+        generateTableRow(doc, totalPosition, '', '', 'Grand Total', '', formatInr(totals.grandTotal));
+        doc.font('Helvetica');
+    };
+
+    const generateFooter = (doc) => {
+        doc
+            .fontSize(10)
+            .text('Payment is due within 15 days. Thank you for your business.', 50, 780, {
+                align: 'center',
+                width: 500
+            });
+    };
+
+    const pdfBuffer = await new Promise((resolve, reject) => {
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const chunks = [];
+
+        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+
+        generateHeader(doc);
+        generateCustomerInformation(doc);
+        generateInvoiceTable(doc);
+        generateFooter(doc);
+        doc.end();
+    });
+
+    return {
+        pdfBuffer,
+        filename: `invoice-${order?._id}.pdf`,
+        totals,
+        invoiceNumber
+    };
+}
 
 
 async function initEmail() {
@@ -91,7 +335,7 @@ async function handleUpload(file) {
     return cldRes;
 }
 
-async function sendEmail({to, subject, text, html}) {
+async function sendEmail({to, subject, text, html, attachments = []}) {
     if (!to) {
         throw new Error('Cannot send email without recipient');
     }
@@ -100,19 +344,25 @@ async function sendEmail({to, subject, text, html}) {
     }
 
     console.log(`Sending email via Resend to ${to}`);
+    const payload = {
+        from: RESEND_FROM,
+        to: [to],
+        subject,
+        text,
+        html
+    };
+
+    if (attachments.length > 0) {
+        payload.attachments = attachments;
+    }
+
     const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
             Authorization: `Bearer ${RESEND_API_KEY}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-            from: RESEND_FROM,
-            to: [to],
-            subject,
-            text,
-            html
-        })
+        body: JSON.stringify(payload)
     });
 
     const body = await response.json().catch(() => null);
@@ -136,18 +386,39 @@ async function sendOrderPlacedEmail(order){
     }
 
     try {
+        let attachments = [];
+        let invoiceNote = 'Your GST invoice PDF is attached to this email.';
+        const invoiceTotals = computeInvoiceTotals(order);
+
+        try {
+            const sellerUser = await getPrimarySellerProfile(order);
+            const invoice = await generateGstInvoicePdf(order, sellerUser);
+            attachments = [{
+                filename: invoice.filename,
+                content: invoice.pdfBuffer.toString('base64'),
+                contentType: 'application/pdf'
+            }];
+        } catch (invoiceError) {
+            invoiceNote = 'We could not attach your GST invoice PDF right now. Please contact support if needed.';
+            console.error(`Invoice generation failed for order ${order?._id}:`, invoiceError);
+        }
+
         const info = await sendEmail({
             to: recipient,
             subject: `Order Placed Successfully - Order ID: ${order._id}`,
-            text: `Hi ${order.shippingDetails.fullName},\n\nThank you for your purchase! Your order with ID ${order._id} has been placed successfully. We will notify you once it is shipped.`,
+            text: `Hi ${order.shippingDetails.fullName},\n\nThank you for your purchase! Your order with ID ${order._id} has been placed successfully.\nTaxable Value: ${formatInr(invoiceTotals.taxableAmount)}\nGST (18%): ${formatInr(invoiceTotals.gstAmount)}\nGrand Total: ${formatInr(invoiceTotals.grandTotal)}\n\n${invoiceNote}\n\nWe will notify you once it is shipped.`,
             html: `<p>Hi ${order.shippingDetails.fullName},</p>
                 <p>Order Details:</p>
                 <ul>
-                    ${order.products.map(p => `<li>${p.quantity} x ${p.productId.title} - ₹${p.price}</li>`).join('')}
+                    ${order.products.map((p, index) => `<li>${p.quantity} x ${p.productId?.title || `Product ${index + 1}`} - ${formatInr(p.price)}</li>`).join('')}
                 </ul>
-                <p>Total Price: ₹${order.totalPrice}</p>
+                <p>Taxable Value: ${formatInr(invoiceTotals.taxableAmount)}</p>
+                <p>GST (18%): ${formatInr(invoiceTotals.gstAmount)}</p>
+                <p><strong>Grand Total: ${formatInr(invoiceTotals.grandTotal)}</strong></p>
+                <p>${invoiceNote}</p>
                 <p>We will notify you once it is shipped.</p>
-                <p>Thank you for shopping with us!</p>`
+                <p>Thank you for shopping with us!</p>`,
+            attachments
         });
         console.log(`Order email sent successfully for order ${order._id}:`, info);
     } catch (err) {
@@ -192,6 +463,12 @@ const UserSchema = new mongoose.Schema({
     lastName: String,
     businessName: String,
     businessLocation: String,
+    gstin: String,
+    businessAddressLine: String,
+    businessCity: String,
+    businessState: String,
+    businessPincode: String,
+    businessCountry: { type: String, default: 'India' },
     watchlist:[{type:mongoose.Schema.Types.ObjectId, ref:'Product'}]
 });
 
@@ -201,6 +478,7 @@ const ProductSchema = new mongoose.Schema({
     description: String,
     category: String,
     seller: String,
+    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     quantity: Number,
     images: [String]
 }, { timestamps: true });
@@ -287,7 +565,7 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/products', upload.array('productImages', 10), async (req, res) => {
     try {
-        const { title, price, description, category, seller, quantity } = req.body;
+        const { title, price, description, category, seller, sellerId, quantity } = req.body;
 
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ message: 'At least one product image is required' });
@@ -308,6 +586,7 @@ app.post('/api/products', upload.array('productImages', 10), async (req, res) =>
             description,
             category,
             seller,
+            sellerId,
             quantity,
             images: imagePaths
         });
@@ -363,6 +642,7 @@ app.get('/api/products', async (req, res) => {
             description: p.description,
             category: p.category,
             seller: p.seller,
+            sellerId: p.sellerId,
             quantity: p.quantity,
             images: p.images.map(img => (img.startsWith('http') ? img : `${SERVER_PUBLIC_URL}${img}`))
         }));
@@ -385,6 +665,7 @@ app.get('/api/products/:id', async (req, res) => {
             description: product.description,
             category: product.category,
             seller: product.seller,
+            sellerId: product.sellerId,
             quantity: product.quantity,
             images: product.images.map(img => (img.startsWith('http') ? img : `${SERVER_PUBLIC_URL}${img}`))
         };
@@ -502,14 +783,17 @@ paymentStatus:"pending",
 deliveryStatus:"pending"
     });
     await newOrder.save();
+    const savedOrder = await Order.findById(newOrder._id)
+        .populate('buyerId', 'email firstName lastName businessName')
+        .populate('products.productId', 'title price seller sellerId');
     try{
-        await sendOrderPlacedEmail(newOrder);
+        await sendOrderPlacedEmail(savedOrder || newOrder);
     } catch (mailError) {
         console.error("Error sending order placed email:", mailError.message);
     }
     res.status(201).json({
         message:"Order created successfully",
-        newOrder,
+        newOrder: savedOrder || newOrder,
 razorpayOrderId:order.id,
     });
     } catch(error){
@@ -521,7 +805,7 @@ app.get('/api/orders', async (req, res) => {
     try {
         const orders = await Order.find()
             .populate('buyerId', 'email')
-            .populate('products.productId', 'title price seller');
+            .populate('products.productId', 'title price seller images');
         res.status(200).json(orders);
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });

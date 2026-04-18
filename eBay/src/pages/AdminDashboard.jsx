@@ -168,6 +168,7 @@ function AdminDashboard() {
 	          searchQuery={searchQuery}
        	  setSearchQuery={setSearchQuery}
    	        activeTab={activeTab}
+			showUsersTab={true}
           	setActiveTab={setActiveTab}
      	  />
 	     </div>
